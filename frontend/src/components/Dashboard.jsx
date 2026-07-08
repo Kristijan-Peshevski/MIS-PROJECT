@@ -14,8 +14,8 @@ export default function Dashboard({ activeRole }) {
     try {
       setLoading(true);
       const [statsRes, incidentsRes] = await Promise.all([
-        fetch('http://localhost:8080/api/stats'),
-        fetch('http://localhost:8080/api/incidents')
+        fetch('/api/stats'),
+        fetch('/api/incidents')
       ]);
       const statsData = await statsRes.json();
       const incidentsData = await incidentsRes.json();

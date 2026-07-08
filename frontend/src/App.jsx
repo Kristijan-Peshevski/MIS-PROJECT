@@ -12,7 +12,7 @@ export default function App() {
 
   useEffect(() => {
     // Fetch users seeded from Database
-    fetch('http://localhost:8080/api/users')
+    fetch('/api/users')
       .then(res => res.json())
       .then(data => {
         setUsers(data);

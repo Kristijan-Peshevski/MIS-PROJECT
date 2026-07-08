@@ -15,7 +15,7 @@ export default function IncidentForm() {
   const [message, setMessage] = useState({ text: '', type: '' });
 
   useEffect(() => {
-    fetch('http://localhost:8080/api/assets')
+    fetch('/api/assets')
       .then(res => res.json())
       .then(data => {
         setAssets(data);
@@ -43,7 +43,7 @@ export default function IncidentForm() {
 
     try {
       setLoading(true);
-      const res = await fetch('http://localhost:8080/api/incidents', {
+      const res = await fetch('/api/incidents', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)

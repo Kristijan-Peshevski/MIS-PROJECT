@@ -26,7 +26,7 @@ export default function ResolutionForm({ incident, onSuccess }) {
 
     try {
       setLoading(true);
-      const res = await fetch(`http://localhost:8080/api/incidents/${incident.incidentId}/resolve`, {
+      const res = await fetch(`/api/incidents/${incident.incidentId}/resolve`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)

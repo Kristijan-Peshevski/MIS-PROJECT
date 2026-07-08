@@ -17,7 +17,7 @@ export default function AnalystWorkspace({ activeRole, activeUser }) {
   const fetchIncidents = async () => {
     try {
       setLoading(true);
-      const res = await fetch('http://localhost:8080/api/incidents');
+      const res = await fetch('/api/incidents');
       const data = await res.json();
       setIncidents(data);
     } catch (error) {
@@ -34,7 +34,7 @@ export default function AnalystWorkspace({ activeRole, activeUser }) {
     }
 
     try {
-      const res = await fetch(`http://localhost:8080/api/incidents/${incidentId}/claim?analystId=${activeUser.id}`, {
+      const res = await fetch(`/api/incidents/${incidentId}/claim?analystId=${activeUser.id}`, {
         method: 'POST'
       });
 
@@ -59,7 +59,7 @@ export default function AnalystWorkspace({ activeRole, activeUser }) {
     setViewResolution(null);
     if (incident.status === 'CLOSED') {
       try {
-        const res = await fetch(`http://localhost:8080/api/incidents/${incident.incidentId}/resolution`);
+        const res = await fetch(`/api/incidents/${incident.incidentId}/resolution`);
         if (res.ok) {
           const resData = await res.json();
           setViewResolution(resData);
