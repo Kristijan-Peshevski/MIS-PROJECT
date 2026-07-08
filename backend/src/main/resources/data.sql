@@ -1,13 +1,13 @@
--- Seed Users (Korisnici)
-INSERT INTO korisnici (ime, prezime, email, uloga) VALUES ('Кристијан', 'Пешевски', 'kristijan.peshevski@finki.ukim.mk', 'ANALITICAR');
-INSERT INTO korisnici (ime, prezime, email, uloga) VALUES ('Филип', 'Михајлов', 'filip.mihajlov@finki.ukim.mk', 'ANALITICAR');
-INSERT INTO korisnici (ime, prezime, email, uloga) VALUES ('Професор', 'МИС', 'profesor.mis@finki.ukim.mk', 'MENADZER');
-INSERT INTO korisnici (ime, prezime, email, uloga) VALUES ('Јован', 'Јовановски', 'jovan.jovanovski@company.com', 'KORISNIK');
-INSERT INTO korisnici (ime, prezime, email, uloga) VALUES ('Марија', 'Андонова', 'marija.andonova@company.com', 'KORISNIK');
+-- Seed Users (Korisnici) - use MERGE to avoid duplicate key errors on restart
+MERGE INTO korisnici (id, ime, prezime, email, uloga) KEY(id) VALUES (1, 'Кристијан', 'Пешевски', 'kristijan.peshevski@finki.ukim.mk', 'ANALITICAR');
+MERGE INTO korisnici (id, ime, prezime, email, uloga) KEY(id) VALUES (2, 'Филип', 'Михајлов', 'filip.mihajlov@finki.ukim.mk', 'ANALITICAR');
+MERGE INTO korisnici (id, ime, prezime, email, uloga) KEY(id) VALUES (3, 'Професор', 'МИС', 'profesor.mis@finki.ukim.mk', 'MENADZER');
+MERGE INTO korisnici (id, ime, prezime, email, uloga) KEY(id) VALUES (4, 'Јован', 'Јовановски', 'jovan.jovanovski@company.com', 'KORISNIK');
+MERGE INTO korisnici (id, ime, prezime, email, uloga) KEY(id) VALUES (5, 'Марија', 'Андонова', 'marija.andonova@company.com', 'KORISNIK');
 
 -- Seed Assets
-INSERT INTO assets (ime_sredstvo, ip_adresa, kritichnost) VALUES ('Главна База на Податоци (Core DB)', '10.0.1.5', 'KRITICNA');
-INSERT INTO assets (ime_sredstvo, ip_adresa, kritichnost) VALUES ('Јавен Веб Сервер (Web Server)', '192.168.1.10', 'VISOKA');
-INSERT INTO assets (ime_sredstvo, ip_adresa, kritichnost) VALUES ('Лаптоп на Директорот (CEO Laptop)', '10.0.5.12', 'VISOKA');
-INSERT INTO assets (ime_sredstvo, ip_adresa, kritichnost) VALUES ('Локален Сервер за Датотеки (File Server)', '10.0.2.20', 'SREDNA');
-INSERT INTO assets (ime_sredstvo, ip_adresa, kritichnost) VALUES ('Компјутер во Рецепција (Reception PC)', '192.168.2.105', 'NISKA');
+MERGE INTO assets (id, ime_sredstvo, ip_adresa, kritichnost) KEY(id) VALUES (1, 'Главна База на Податоци (Core DB)', '10.0.1.5', 'KRITICNA');
+MERGE INTO assets (id, ime_sredstvo, ip_adresa, kritichnost) KEY(id) VALUES (2, 'Јавен Веб Сервер (Web Server)', '192.168.1.10', 'VISOKA');
+MERGE INTO assets (id, ime_sredstvo, ip_adresa, kritichnost) KEY(id) VALUES (3, 'Лаптоп на Директорот (CEO Laptop)', '10.0.5.12', 'VISOKA');
+MERGE INTO assets (id, ime_sredstvo, ip_adresa, kritichnost) KEY(id) VALUES (4, 'Локален Сервер за Датотеки (File Server)', '10.0.2.20', 'SREDNA');
+MERGE INTO assets (id, ime_sredstvo, ip_adresa, kritichnost) KEY(id) VALUES (5, 'Компјутер во Рецепција (Reception PC)', '192.168.2.105', 'NISKA');
