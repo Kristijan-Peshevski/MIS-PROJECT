@@ -1,0 +1,10 @@
+com\soc\portal\repository\ResolutionRepository.class
+com\soc\portal\model\Resolution.class
+com\soc\portal\model\Asset.class
+com\soc\portal\repository\IncidentRepository.class
+com\soc\portal\model\Korisnik.class
+com\soc\portal\repository\AssetRepository.class
+com\soc\portal\controller\PortalController.class
+com\soc\portal\repository\KorisnikRepository.class
+com\soc\portal\model\Incident.class
+com\soc\portal\PortalApplication.class
