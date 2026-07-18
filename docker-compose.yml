@@ -1,23 +1,132 @@
+# ============================================================================
+# docker-compose.yml — SOC Portal + Odoo ERP интеграција
+# ----------------------------------------------------------------------------
+# Stack: PostgreSQL (Odoo DB)  +  Odoo 17 (Helpdesk + Studio)
+#      + Spring Boot 3.3 (XML-RPC мост)  +  React 19 (Nginx)
+#
+# Сите четири сервиси се на Docker мрежата soc_net. Odoo податоците
+# траат во именски volume (odoo_data + odoo-db-data). basic auth за
+# XML-RPC се пренесуваат преку environment variables во Spring Boot.
+# ----------------------------------------------------------------------------
+# Стартување:
+#   docker compose up --build -d
+# Корисни крајни точки:
+#   http://localhost       -> React (Nginx)
+#   http://localhost:8080  -> Spring Boot REST API
+#   http://localhost:8069  -> Odoo Helpdesk (admin / admin)
+# ============================================================================
+
 services:
+  # --------------------------------------------------------------------------
+  # 1. Odoo PostgreSQL база
+  # --------------------------------------------------------------------------
+  odoo-db:
+    image: postgres:15
+    container_name: soc_odoo_db
+    restart: always
+    environment:
+      POSTGRES_DB: odoo
+      POSTGRES_USER: odoo
+      POSTGRES_PASSWORD: odoo_pw
+    volumes:
+      - odoo-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U odoo -d odoo"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - soc_net
+
+  # --------------------------------------------------------------------------
+  # 2. Odoo 17.0 — Helpdesk модул + Odoo Studio прилагодувања
+  # --------------------------------------------------------------------------
+  odoo:
+    image: odoo:17.0
+    container_name: soc_odoo
+    restart: always
+    depends_on:
+      odoo-db:
+        condition: service_healthy
+    environment:
+      HOSTNAME: db
+      # Конекциски стринг за PostgreSQL
+      DB_HOST: odoo-db
+      DB_PORT: 5432
+      DB_NAME: odoo
+      DB_USER: odoo
+      DB_PASSWORD: odoo_pw
+      # Администратор на Odoo
+      ADMIN_PASSWD: admin
+    ports:
+      - "8069:8069"     # Odoo web UI + XML-RPC (/xmlrpc/2/*)
+      - "8072:8072"     # Odoo longpolling (chat, bus)
+    volumes:
+      - odoo-data:/var/lib/odoo
+      # Опционално: mount на addons и конфигурација
+      - ./odoo/addons:/mnt/extra-addons:ro
+      - ./odoo/odoo.conf:/etc/odoo/odoo.conf:ro
+    networks:
+      - soc_net
+
+  # --------------------------------------------------------------------------
+  # 3. Spring Boot мидлвер (XML-RPC мост до Odoo)
+  # --------------------------------------------------------------------------
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
+    container_name: soc_backend
+    restart: always
+    depends_on:
+      odoo-db:
+        condition: service_healthy
+      odoo:
+        condition: service_started
+    environment:
+      # Odoo XML-RPC endpoint (внатрешен DNS на Docker мрежата)
+      ODOO_URL: http://odoo:8069/xmlrpc/2
+      ODOO_DB: odoo
+      ODOO_USER: admin
+      ODOO_PASSWORD: admin
+      # Spring порт
+      SERVER_PORT: 8080
+      # H2 in-mem за аналитички цели (постоечки data.sql се извршува)
+      SPRING_DATASOURCE_URL: jdbc:h2:mem:socdb
     ports:
       - "8080:8080"
     volumes:
-      - backend-db:/app/data
-    restart: always
+      - backend-data:/app/data
+    networks:
+      - soc_net
 
+  # --------------------------------------------------------------------------
+  # 4. React фронтенд (Nginx)
+  # --------------------------------------------------------------------------
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    ports:
-      - "80:80"
+    container_name: soc_frontend
+    restart: always
     depends_on:
       - backend
-    restart: always
+    ports:
+      - "80:80"
+    networks:
+      - soc_net
 
+# ----------------------------------------------------------------------------
+# Named volumes — трајност на податоците
+# ----------------------------------------------------------------------------
 volumes:
-  backend-db:
+  odoo-db-data:
+  odoo-data:
+  backend-data:
+
+# ----------------------------------------------------------------------------
+# Docker мрежа — сите сервиси комуницираат преку DNS името на контејнерот
+# ----------------------------------------------------------------------------
+networks:
+  soc_net:
+    driver: bridge

@@ -11,3 +11,7 @@ MERGE INTO assets (id, ime_sredstvo, ip_adresa, kritichnost) KEY(id) VALUES (2, 
 MERGE INTO assets (id, ime_sredstvo, ip_adresa, kritichnost) KEY(id) VALUES (3, 'Лаптоп на Директорот (CEO Laptop)', '10.0.5.12', 'VISOKA');
 MERGE INTO assets (id, ime_sredstvo, ip_adresa, kritichnost) KEY(id) VALUES (4, 'Локален Сервер за Датотеки (File Server)', '10.0.2.20', 'SREDNA');
 MERGE INTO assets (id, ime_sredstvo, ip_adresa, kritichnost) KEY(id) VALUES (5, 'Компјутер во Рецепција (Reception PC)', '192.168.2.105', 'NISKA');
+
+-- Restart auto-increment sequences to prevent primary key violations when H2 tries to allocate ID 1
+ALTER TABLE korisnici ALTER COLUMN id RESTART WITH 6;
+ALTER TABLE assets ALTER COLUMN id RESTART WITH 6;

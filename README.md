@@ -33,10 +33,35 @@
 
 | Компонента | Технологија |
 |---|---|
-| **Backend** | Spring Boot 3.3.1, Java 17, Spring Data JPA |
-| **Frontend** | React 19, Vite, Vanilla CSS (Dark Mode / Glassmorphism) |
-| **База на податоци** | H2 Database (локална датотека, без потреба од инсталација) |
-| **Контејнеризација** | Docker, Docker Compose |
+| **Backend** | Spring Boot 3.3.1, Java 17, Spring Data JPA, Apache XML-RPC Client |
+| **Frontend** | React 19, Vite, axios, Vanilla CSS (Dark Mode / Glassmorphism) |
+| **ERP срцевина** | Odoo 17.0 (Helpdesk модул проширен со Odoo Studio) |
+| **ERP база** | PostgreSQL 15 (на odoo-db сервис) |
+| **Аналитичка база** | H2 Database (за KPI и seed податоци) |
+| **Контејнеризација** | Docker, Docker Compose (4 сервиси: odoo-db, odoo, backend, frontend) |
+
+## 🔄 Интеграциска архитектура
+
+```
+Корисник (React форма)
+    │ POST /api/incidents (axios + JSON)
+    ▼
+Spring Boot (REST контролер)
+    │ apache-xmlrpc ➝ execute_kw("helpdesk.ticket", "create", ...)
+    ▼
+Odoo ERP (Helpdesk + Odoo Studio)
+    │ automated action ➝ автоматски приоритет од критичност на средството
+    ▼
+Odoo Kanban (New → Under Investigation → Solved)
+    │ account.analytic.line (timesheet) ➝ SLA KPIs
+    ▼
+Odoo Dashboard (SLA метрики, реакција, резолуција)
+```
+
+## 📂 Дополнителна документација
+
+- `docs/VIDEO_SCENARIO.md` — сценарио за 3-минутна видео презентација на македонски
+- `docs/ODOO_SETUP_GUIDE.md` — чекор-по-чекор инсталација на Odoo модули и Studio автоматизации
 
 ---
 

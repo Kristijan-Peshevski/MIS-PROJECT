@@ -1,6 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { ShieldAlert, Send } from 'lucide-react';
+import { ShieldAlert, Send, Database } from 'lucide-react';
+import axios from 'axios';
 
+/**
+ * IncidentForm — реактивен формулар за пријавување безбедносен инцидент.
+ *
+ * <p>Комуникација: React ➝ axios ➝ POST /api/incidents ➝ Spring Boot ➝
+ * Apache XML-RPC ➝ Odoo Helpdesk (model: helpdesk.ticket).
+ *
+ * <p>Vite dev proxy: /api -> http://localhost:8080 (види vite.config.js)
+ * <p>Docker / Nginx: /api -> http://backend:8080 (види nginx.conf)
+ */
 export default function IncidentForm() {
   const [assets, setAssets] = useState([]);
   const [formData, setFormData] = useState({
@@ -14,16 +24,19 @@ export default function IncidentForm() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState({ text: '', type: '' });
 
+  // Вчитување на листата на ИТ средства од Spring Boot (од H2 преку AssetRepository).
   useEffect(() => {
-    fetch('/api/assets')
-      .then(res => res.json())
-      .then(data => {
-        setAssets(data);
-        if (data.length > 0) {
-          setFormData(prev => ({ ...prev, assetId: data[0].id.toString() }));
+    axios.get('/api/assets')
+      .then(res => {
+        setAssets(res.data || []);
+        if (res.data && res.data.length > 0) {
+          setFormData(prev => ({ ...prev, assetId: res.data[0].id.toString() }));
         }
       })
-      .catch(err => console.error("Грешка при влечење на средства:", err));
+      .catch(err => {
+        console.error('Грешка при вчитување на средства:', err);
+        setMessage({ text: 'Не можат да се вчитаат ИТ средствата. Проверете ja врската со серверот.', type: 'danger' });
+      });
   }, []);
 
   const handleChange = (e) => {
@@ -31,45 +44,63 @@ export default function IncidentForm() {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
+  /**
+   * Поднесување на формуларот:
+   *   payload = { title, description, assetId, type } + reporterEmail/itnost
+   *   Повик: POST /api/incidents  (Spring Boot -> Odoo XML-RPC)
+   */
   const handleSubmit = async (e) => {
     e.preventDefault();
     setMessage({ text: '', type: '' });
 
-    // Validation
-    if (!formData.naslov.trim() || !formData.opis.trim() || !formData.reporterEmail.trim() || !formData.assetId) {
-      setMessage({ text: 'Ве молиме пополнете ги сите задолжителни полиња.', type: 'danger' });
+    // Frontend валидација
+    if (!formData.naslov.trim() || !formData.opis.trim() ||
+        !formData.reporterEmail.trim() || !formData.assetId) {
+      setMessage({
+        text: 'Ве молиме пополнете ги сите задолжителни полиња.',
+        type: 'danger'
+      });
       return;
     }
 
+    // Payload кон Spring Boot. Полето assetId мора да биде број (Long).
+    const payload = {
+      title: formData.naslov,
+      description: formData.opis,
+      assetId: parseInt(formData.assetId, 10),
+      type: formData.tipIncident,
+      itnost: formData.itnost,
+      reporterEmail: formData.reporterEmail
+    };
+
     try {
       setLoading(true);
-      const res = await fetch('/api/incidents', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
+      const response = await axios.post('/api/incidents', payload);
+
+      // Успешен одговор од Spring Boot (кој повика Odoo create())
+      const data = response.data || {};
+      const odooTicketId = data.odoo_ticket_id ?? data.incidentId;
+
+      setMessage({
+        text: `✓ Инцидентот е успешно регистриран во Odoo Helpdesk (Ticket #${odooTicketId}, priority=${data.priority}). ` +
+              `Приоритетот е автоматски пресметан врз основа на критичноста на средството.`,
+        type: 'success'
       });
 
-      if (res.ok) {
-        const data = await res.json();
-        setMessage({ 
-          text: `Инцидентот е успешно регистриран под ID: ${data.incidentId}. Секундарната итност е автоматски поставена соодветно на критичноста на средството.`, 
-          type: 'success' 
-        });
-        setFormData({
-          naslov: '',
-          tipIncident: 'PHISHING',
-          opis: '',
-          itnost: 'SREDNA',
-          reporterEmail: '',
-          assetId: assets[0]?.id.toString() || ''
-        });
-      } else {
-        const errText = await res.text();
-        setMessage({ text: errText || 'Настана грешка при зачувување.', type: 'danger' });
-      }
+      // Ресетирање на формуларот (со задржување на првото средство)
+      setFormData({
+        naslov: '',
+        tipIncident: 'PHISHING',
+        opis: '',
+        itnost: 'SREDNA',
+        reporterEmail: '',
+        assetId: assets[0]?.id.toString() || ''
+      });
     } catch (error) {
-      console.error(error);
-      setMessage({ text: 'Грешка во комуникацијата со серверот.', type: 'danger' });
+      console.error('Грешка при поднесување:', error);
+      const errMsg = error.response?.data?.error || error.response?.data?.message
+        || error.message || 'Настана грешка при комуникација со серверот.';
+      setMessage({ text: `Грешка: ${errMsg}`, type: 'danger' });
     } finally {
       setLoading(false);
     }
@@ -81,13 +112,26 @@ export default function IncidentForm() {
         <ShieldAlert size={48} className="glow-red" />
       </div>
       <h2 className="form-title">Пријави Безбедносен Инцидент</h2>
-      <p className="form-subtitle">Внесете ги потребните технички детали за инцидентот за брза реакција на SOC тимот.</p>
+      <p className="form-subtitle">
+        Внесете ги потребните технички детали за инцидентот. Системот автоматски го пренесува
+        инцидентот во Odoo Helpdesk преку Spring Boot XML-RPC мост.
+      </p>
+
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px',
+        background: 'rgba(99, 102, 241, 0.1)', border: '1px solid rgba(99, 102, 241, 0.25)',
+        borderRadius: 'var(--radius-md)', marginBottom: '16px', fontSize: '0.8rem',
+        color: 'var(--color-info, #6366f1)'
+      }}>
+        <Database size={16} />
+        <span>Odoo ERP активен — инцидентите се зачувуваат во helpdesk.ticket</span>
+      </div>
 
       {message.text && (
-        <div style={{ 
-          padding: '12px 16px', 
-          borderRadius: 'var(--radius-md)', 
-          marginBottom: '20px', 
+        <div style={{
+          padding: '12px 16px',
+          borderRadius: 'var(--radius-md)',
+          marginBottom: '20px',
           fontSize: '0.9rem',
           background: message.type === 'success' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
           color: message.type === 'success' ? 'var(--color-success)' : 'var(--color-danger)',
@@ -100,12 +144,12 @@ export default function IncidentForm() {
       <form onSubmit={handleSubmit}>
         <div className="form-group">
           <label className="form-label">Вашата Е-Пошта *</label>
-          <input 
-            type="email" 
-            name="reporterEmail" 
-            className="form-input" 
-            placeholder="пример: korisnik@company.com" 
-            value={formData.reporterEmail} 
+          <input
+            type="email"
+            name="reporterEmail"
+            className="form-input"
+            placeholder="пример: korisnik@company.com"
+            value={formData.reporterEmail}
             onChange={handleChange}
             required
           />
@@ -113,12 +157,12 @@ export default function IncidentForm() {
 
         <div className="form-group">
           <label className="form-label">Краток Наслов *</label>
-          <input 
-            type="text" 
-            name="naslov" 
-            className="form-input" 
-            placeholder="пример: Сомнителен ransomware на компјутер" 
-            value={formData.naslov} 
+          <input
+            type="text"
+            name="naslov"
+            className="form-input"
+            placeholder="пример: Сомнителен ransomware на компјутер"
+            value={formData.naslov}
             onChange={handleChange}
             required
           />
@@ -159,11 +203,11 @@ export default function IncidentForm() {
 
         <div className="form-group">
           <label className="form-label">Технички опис на инцидентот *</label>
-          <textarea 
-            name="opis" 
-            className="form-textarea" 
-            placeholder="Опишете ги аномалиите детално..." 
-            value={formData.opis} 
+          <textarea
+            name="opis"
+            className="form-textarea"
+            placeholder="Опишете ги аномалиите детално..."
+            value={formData.opis}
             onChange={handleChange}
             required
           ></textarea>
@@ -171,7 +215,7 @@ export default function IncidentForm() {
 
         <button type="submit" className="btn-primary" disabled={loading}>
           <Send size={18} />
-          {loading ? 'Се поднесува...' : 'Поднеси Безбедносен Инцидент'}
+          {loading ? 'Се испраќа до Odoo...' : 'Поднеси Безбедносен Инцидент'}
         </button>
       </form>
     </div>

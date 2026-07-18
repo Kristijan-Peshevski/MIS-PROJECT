@@ -1,7 +1,10 @@
 package com.soc.portal.controller;
 
 import com.soc.portal.model.*;
+import com.soc.portal.odoo.OdooClient;
 import com.soc.portal.repository.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -15,6 +18,16 @@ import java.util.*;
 @CrossOrigin(origins = "*", allowedHeaders = "*")
 public class PortalController {
 
+    private static final Logger log = LoggerFactory.getLogger(PortalController.class);
+
+    /** Мапирање на критичност на ИТ средството -> Odoo приоритет (0..3). */
+    private static final Map<String, Integer> KRITICHNOST_TO_PRIORITY = Map.of(
+            "KRITICNA", 3,
+            "VISOKA",   2,
+            "SREDNA",   1,
+            "NISKA",    0
+    );
+
     @Autowired
     private KorisnikRepository korisnikRepository;
 
@@ -26,6 +39,9 @@ public class PortalController {
 
     @Autowired
     private ResolutionRepository resolutionRepository;
+
+    @Autowired(required = false)
+    private OdooClient odooClient;  // Може да биде null ако Odoo не е конфигуриран.
 
     // --- GET DATA ---
 
@@ -161,7 +177,60 @@ public class PortalController {
         incident.setAsset(asset);
 
         Incident saved = incidentRepository.save(incident);
-        return ResponseEntity.ok(saved);
+
+        // ---------------------------------------------------------------
+        // Odoo интеграција: дополнително креирај helpdesk.ticket во Odoo.
+        // Ако Odoo е недостапен, инцидентот сепак се зачувува во H2 — порталот
+        // останува функционален. Грешката се логира и се враќа 200 со
+        // дополнително поле odooTicketId (или null).
+        // ---------------------------------------------------------------
+        Integer odooTicketId = null;
+        String odooError = null;
+        if (odooClient != null) {
+            try {
+                int priority = KRITICHNOST_TO_PRIORITY.getOrDefault(
+                        saved.getItnost(), 1);
+                String title = saved.getIncidentId() + " - " + saved.getNaslov();
+                String description = buildOdooDescription(saved, asset);
+
+                // Испрати го инцидентот во Odoo како helpdesk.ticket.
+                // Signature: createHelpdeskTicket(title, description,
+                //                                assetId, teamId, priority)
+                odooTicketId = odooClient.createHelpdeskTicket(
+                        title,
+                        description,
+                        asset.getId() != null ? asset.getId().intValue() : null,
+                        null,   // team_id: се доделува подоцна преку Odoo Studio automation
+                        priority);
+                log.info("Odoo ticket {} created for incident {}",
+                        odooTicketId, saved.getIncidentId());
+            } catch (Exception ex) {
+                odooError = ex.getMessage();
+                log.warn("Odoo create failed for incident {} (порталот продолжува): {}",
+                        saved.getIncidentId(), ex.getMessage());
+            }
+        }
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("incident", saved);
+        response.put("odooTicketId", odooTicketId);
+        response.put("odooError", odooError);
+        return ResponseEntity.ok(response);
+    }
+
+    private String buildOdooDescription(Incident inc, Asset asset) {
+        String reporter = (inc.getKorisnik() != null) ? inc.getKorisnik().getEmail() : "—";
+        return String.format(
+                "Incident ID: %s%nТип: %s%nИТ средство: %s (%s)%nКритичност: %s%n" +
+                "Пријавил: %s%nДатум: %s%n%nОпис:%n%s",
+                inc.getIncidentId(),
+                inc.getTipIncident(),
+                asset.getImeSredstvo(),
+                asset.getIpAdresa(),
+                asset.getKritichnost(),
+                reporter,
+                inc.getDatumKreiranje(),
+                inc.getOpis() != null ? inc.getOpis() : "");
     }
 
     // 2. Claim Ticket
