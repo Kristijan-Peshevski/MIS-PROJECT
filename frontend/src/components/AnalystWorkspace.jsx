@@ -17,7 +17,13 @@ export default function AnalystWorkspace({ activeRole, activeUser }) {
   const fetchIncidents = async () => {
     try {
       setLoading(true);
-      const res = await fetch('/api/incidents');
+    const res = await fetch('/api/incidents');
+      if (!res.ok) {
+        console.error('Failed to fetch incidents:', res.status);
+        alert('Не можам да ги вчитам инцидентите. Ве молам проверете ја бекенд конекцијата.');
+        setLoading(false);
+        return;
+      }
       const data = await res.json();
       setIncidents(data);
     } catch (error) {
@@ -77,6 +83,8 @@ export default function AnalystWorkspace({ activeRole, activeUser }) {
 
   return (
     <div>
+      <h2 style={{ marginBottom: '16px', color: 'var(--color-primary)' }}>SOC Аналитичари - Преглед на инциденти</h2>
+
       <div className="header-container">
         <div>
           <h1 className="header-title">Работен простор за Аналитичари</h1>
@@ -136,8 +144,8 @@ export default function AnalystWorkspace({ activeRole, activeUser }) {
                         {inc.itnost}
                       </span>
                     </td>
-                    <td>{inc.asset.imeSredstvo}</td>
-                    <td style={{ fontSize: '0.85rem' }}>{inc.korisnik.email}</td>
+                    <td>{inc.asset?.imeSredstvo ?? '-'}</td>
+                    <td style={{ fontSize: '0.85rem' }}>{inc.korisnik?.email ?? '-'}</td>
                     <td>
                       <span className={`badge ${
                         inc.status === 'CLOSED' ? 'badge-closed' : inc.status === 'UNDER_INVESTIGATION' ? 'badge-investigating' : 'badge-new'
@@ -175,7 +183,7 @@ export default function AnalystWorkspace({ activeRole, activeUser }) {
         </div>
       )}
 
-      {/* Details Modal */}
+            {/* Details Modal */}
       {selectedIncident && (
         <div className="modal-overlay" onClick={() => setSelectedIncident(null)}>
           <div className="glass-card modal-content" onClick={(e) => e.stopPropagation()}>
@@ -202,15 +210,15 @@ export default function AnalystWorkspace({ activeRole, activeUser }) {
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                 <div>
-                  <strong>ИТ Средство:</strong> {selectedIncident.asset.imeSredstvo} ({selectedIncident.asset.ipAdresa})
+                  <strong>ИТ Средство:</strong> {selectedIncident.asset?.imeSredstvo ?? '-'} ({selectedIncident.asset?.ipAdresa ?? '-'})
                 </div>
                 <div>
-                  <strong>Критичност на средство:</strong> {selectedIncident.asset.kritichnost}
+                  <strong>Критичност на средство:</strong> {selectedIncident.asset?.kritichnost ?? '-'}
                 </div>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                 <div>
-                  <strong>Пријавувач:</strong> {selectedIncident.korisnik.ime} {selectedIncident.korisnik.prezime} ({selectedIncident.korisnik.email})
+                  <strong>Пријавувач:</strong> {selectedIncident.korisnik?.ime ?? ''} {selectedIncident.korisnik?.prezime ?? ''} ({selectedIncident.korisnik?.email ?? '-'})
                 </div>
                 <div>
                   <strong>Датум на пријава:</strong> {new Date(selectedIncident.datumKreiranje).toLocaleString()}

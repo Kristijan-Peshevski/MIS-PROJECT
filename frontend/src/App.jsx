@@ -1,36 +1,45 @@
 import React, { useState, useEffect } from 'react';
-import { Shield, LayoutDashboard, FileEdit, UserCheck, Terminal } from 'lucide-react';
+import { Shield, LayoutDashboard, FileEdit, Terminal, LogIn, LogOut, UserCheck, User } from 'lucide-react';
 import Dashboard from './components/Dashboard';
 import IncidentForm from './components/IncidentForm';
 import AnalystWorkspace from './components/AnalystWorkspace';
+import AuthModal from './components/AuthModal';
 import './App.css';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [users, setUsers] = useState([]);
   const [activeUser, setActiveUser] = useState(null);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [authModalTab, setAuthModalTab] = useState('login');
 
   useEffect(() => {
-    // Fetch users seeded from Database
-    fetch('/api/users')
-      .then(res => res.json())
-      .then(data => {
-        setUsers(data);
-        if (data.length > 0) {
-          // Default to the first analyst (Kristijan Peshevski)
-          const defaultAnalyst = data.find(u => u.uloga === 'ANALITICAR') || data[0];
-          setActiveUser(defaultAnalyst);
-        }
-      })
-      .catch(err => console.error("Грешка при влечење на корисници:", err));
+    // Read saved user session from localStorage
+    const savedUser = localStorage.getItem('soc_active_user');
+    if (savedUser) {
+      try {
+        setActiveUser(JSON.parse(savedUser));
+      } catch (e) {
+        localStorage.removeItem('soc_active_user');
+      }
+    }
   }, []);
 
-  const handleUserChange = (e) => {
-    const userId = parseInt(e.target.value);
-    const user = users.find(u => u.id === userId);
-    if (user) {
-      setActiveUser(user);
+  const handleLoginSuccess = (user) => {
+    setActiveUser(user);
+    localStorage.setItem('soc_active_user', JSON.stringify(user));
+  };
+
+  const handleLogout = () => {
+    setActiveUser(null);
+    localStorage.removeItem('soc_active_user');
+    if (activeTab === 'workspace') {
+      setActiveTab('dashboard');
     }
+  };
+
+  const openLoginModal = (tab = 'login') => {
+    setAuthModalTab(tab);
+    setIsAuthModalOpen(true);
   };
 
   return (
@@ -64,7 +73,7 @@ export default function App() {
                 </div>
               </li>
               
-              {/* Show analyst workspace if role is ANALITICAR or MENADZER */}
+              {/* Show analyst workspace if logged in role is ANALITICAR or MENADZER */}
               {activeUser && (activeUser.uloga === 'ANALITICAR' || activeUser.uloga === 'MENADZER') && (
                 <li>
                   <div 
@@ -80,42 +89,78 @@ export default function App() {
           </nav>
         </div>
 
-        {/* User Role Simulation Panel */}
-        <div className="role-selector">
-          <label className="role-label">
-            <UserCheck size={12} style={{ marginRight: '4px' }} />
-            Симулација на Корисник
-          </label>
-          <select 
-            className="role-select" 
-            value={activeUser ? activeUser.id : ''} 
-            onChange={handleUserChange}
-          >
-            {users.map(u => (
-              <option key={u.id} value={u.id}>
-                {u.ime} {u.prezime} ({u.uloga})
-              </option>
-            ))}
-          </select>
-          {activeUser && (
-            <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: '8px', paddingLeft: '4px' }}>
-              Улога: <span style={{ color: 'var(--color-primary)', fontWeight: 'bold' }}>{activeUser.uloga}</span>
-            </div>
-          )}
+        {/* Sidebar Footer System Info */}
+        <div className="sidebar-footer">
+          <div className="system-status-badge">
+            <span className="status-dot"></span> PostgreSQL & Odoo Active
+          </div>
         </div>
       </aside>
 
-      {/* Main Content Pane */}
+      {/* Main Content Area */}
       <main className="main-content">
-        {activeTab === 'dashboard' && <Dashboard activeRole={activeUser ? activeUser.uloga : 'KORISNIK'} />}
-        {activeTab === 'report' && <IncidentForm />}
-        {activeTab === 'workspace' && (
-          <AnalystWorkspace 
-            activeRole={activeUser ? activeUser.uloga : 'KORISNIK'} 
-            activeUser={activeUser}
-          />
-        )}
+        {/* Top Navigation Header */}
+        <header className="top-header">
+          <div className="header-title">
+            <h1>Информациски систем за безбедносни инциденти</h1>
+            <span className="header-subtitle">Security Operations Center (SOC) Portal</span>
+          </div>
+
+          <div className="header-user-profile">
+            {activeUser ? (
+              <div className="user-profile-badge">
+                <div className="avatar-circle">
+                  {activeUser.ime ? activeUser.ime.charAt(0).toUpperCase() : <User size={16} />}
+                </div>
+                <div className="user-info">
+                  <span className="user-name">{activeUser.ime} {activeUser.prezime}</span>
+                  <span className="user-role">{activeUser.uloga}</span>
+                </div>
+                <button className="logout-btn" onClick={handleLogout} title="Одјави се">
+                  <LogOut size={16} />
+                  <span>Одјави се</span>
+                </button>
+              </div>
+            ) : (
+              <div className="auth-buttons">
+                <button className="login-header-btn" onClick={() => openLoginModal('login')}>
+                  <LogIn size={16} />
+                  <span>Најава</span>
+                </button>
+                <button className="register-header-btn" onClick={() => openLoginModal('register')}>
+                  <UserCheck size={16} />
+                  <span>Регистрација</span>
+                </button>
+              </div>
+            )}
+          </div>
+        </header>
+
+        {/* Dynamic Views */}
+        <div className="content-pane">
+          {activeTab === 'dashboard' && <Dashboard activeRole={activeUser ? activeUser.uloga : 'KORISNIK'} />}
+          {activeTab === 'report' && (
+            <IncidentForm 
+              activeUser={activeUser}
+              onRequireLogin={() => openLoginModal('login')}
+            />
+          )}
+          {activeTab === 'workspace' && activeUser && (
+            <AnalystWorkspace 
+              activeRole={activeUser.uloga} 
+              activeUser={activeUser}
+            />
+          )}
+        </div>
       </main>
+
+      {/* Login & Register Modal Dialog */}
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        onLoginSuccess={handleLoginSuccess}
+        initialTab={authModalTab}
+      />
     </div>
   );
 }

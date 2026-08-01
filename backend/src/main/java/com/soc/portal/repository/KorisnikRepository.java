@@ -6,4 +6,6 @@ import java.util.Optional;
 
 public interface KorisnikRepository extends JpaRepository<Korisnik, Long> {
     Optional<Korisnik> findByEmail(String email);
+    Optional<Korisnik> findByEmailAndLozinka(String email, String lozinka);
+    boolean existsByEmail(String email);
 }

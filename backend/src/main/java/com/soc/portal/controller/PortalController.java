@@ -43,6 +43,62 @@ public class PortalController {
     @Autowired(required = false)
     private OdooClient odooClient;  // Може да биде null ако Odoo не е конфигуриран.
 
+    // --- AUTHENTICATION ---
+
+    @PostMapping("/auth/login")
+    public ResponseEntity<?> login(@RequestBody Map<String, String> payload) {
+        String email = payload.get("email");
+        String lozinka = payload.get("lozinka");
+
+        if (email == null || email.trim().isEmpty() || lozinka == null || lozinka.trim().isEmpty()) {
+            return ResponseEntity.badRequest().body("Е-поштата и лозинката се задолжителни.");
+        }
+
+        String cleanEmail = email.trim().toLowerCase();
+        String cleanPassword = lozinka.trim();
+
+        Optional<Korisnik> userOpt = korisnikRepository.findAll().stream()
+                .filter(u -> u.getEmail().trim().equalsIgnoreCase(cleanEmail) && u.getLozinka() != null && u.getLozinka().trim().equals(cleanPassword))
+                .findFirst();
+
+        if (userOpt.isEmpty()) {
+            boolean emailExists = korisnikRepository.findAll().stream()
+                    .anyMatch(u -> u.getEmail().trim().equalsIgnoreCase(cleanEmail));
+            if (!emailExists) {
+                return ResponseEntity.status(401).body("Корисникот со оваа е-пошта не постои.");
+            }
+            return ResponseEntity.status(401).body("Погрешна лозинка. Ве молиме обидете се повторно.");
+        }
+
+        return ResponseEntity.ok(userOpt.get());
+    }
+
+    @PostMapping("/auth/register")
+    public ResponseEntity<?> register(@RequestBody Map<String, String> payload) {
+        String ime = payload.get("ime");
+        String prezime = payload.get("prezime");
+        String email = payload.get("email");
+        String lozinka = payload.get("lozinka");
+        String uloga = payload.get("uloga");
+
+        if (ime == null || ime.trim().isEmpty() ||
+            prezime == null || prezime.trim().isEmpty() ||
+            email == null || email.trim().isEmpty() ||
+            lozinka == null || lozinka.trim().isEmpty()) {
+            return ResponseEntity.badRequest().body("Сите полиња се задолжителни (Име, Презиме, Е-пошта, Лозинка).");
+        }
+
+        if (korisnikRepository.existsByEmail(email.trim())) {
+            return ResponseEntity.badRequest().body("Корисник со оваа е-пошта веќе постои.");
+        }
+
+        String finalUloga = (uloga != null && !uloga.trim().isEmpty()) ? uloga.trim().toUpperCase() : "KORISNIK";
+        Korisnik newUser = new Korisnik(ime.trim(), prezime.trim(), email.trim(), finalUloga, lozinka.trim());
+        Korisnik saved = korisnikRepository.save(newUser);
+
+        return ResponseEntity.ok(saved);
+    }
+
     // --- GET DATA ---
 
     @GetMapping("/users")
@@ -123,13 +179,25 @@ public class PortalController {
 
     // 1. Report Incident
     @PostMapping("/incidents")
-    public ResponseEntity<?> reportIncident(@RequestBody Map<String, String> payload) {
-        String naslov = payload.get("naslov");
-        String tip = payload.get("tipIncident");
-        String opis = payload.get("opis");
-        String itnost = payload.get("itnost");
-        String email = payload.get("reporterEmail");
-        Long assetId = Long.parseLong(payload.get("assetId"));
+    public ResponseEntity<?> reportIncident(@RequestBody Map<String, Object> payload) {
+        String naslov = payload.get("naslov") != null ? payload.get("naslov").toString()
+                : (payload.get("title") != null ? payload.get("title").toString() : null);
+        String tip = payload.get("tipIncident") != null ? payload.get("tipIncident").toString()
+                : (payload.get("type") != null ? payload.get("type").toString() : null);
+        String opis = payload.get("opis") != null ? payload.get("opis").toString()
+                : (payload.get("description") != null ? payload.get("description").toString() : null);
+        String itnost = payload.get("itnost") != null ? payload.get("itnost").toString() : null;
+        String email = payload.get("reporterEmail") != null ? payload.get("reporterEmail").toString() : null;
+
+        Object assetIdObj = payload.get("assetId");
+        Long assetId = null;
+        if (assetIdObj != null) {
+            try {
+                assetId = Long.parseLong(assetIdObj.toString());
+            } catch (NumberFormatException e) {
+                log.error("Invalid assetId format: {}", assetIdObj);
+            }
+        }
 
         if (naslov == null || naslov.trim().isEmpty() ||
             tip == null || tip.trim().isEmpty() ||
@@ -213,7 +281,10 @@ public class PortalController {
 
         Map<String, Object> response = new HashMap<>();
         response.put("incident", saved);
+        response.put("incidentId", saved.getIncidentId());
         response.put("odooTicketId", odooTicketId);
+        response.put("odoo_ticket_id", odooTicketId);
+        response.put("priority", KRITICHNOST_TO_PRIORITY.getOrDefault(saved.getItnost(), 1));
         response.put("odooError", odooError);
         return ResponseEntity.ok(response);
     }

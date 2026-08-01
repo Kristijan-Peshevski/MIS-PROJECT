@@ -11,16 +11,22 @@ import axios from 'axios';
  * <p>Vite dev proxy: /api -> http://localhost:8080 (види vite.config.js)
  * <p>Docker / Nginx: /api -> http://backend:8080 (види nginx.conf)
  */
-export default function IncidentForm() {
+export default function IncidentForm({ activeUser, onRequireLogin }) {
   const [assets, setAssets] = useState([]);
   const [formData, setFormData] = useState({
     naslov: '',
     tipIncident: 'PHISHING',
     opis: '',
     itnost: 'SREDNA',
-    reporterEmail: '',
+    reporterEmail: activeUser ? activeUser.email : '',
     assetId: ''
   });
+
+  useEffect(() => {
+    if (activeUser && activeUser.email) {
+      setFormData(prev => ({ ...prev, reporterEmail: activeUser.email }));
+    }
+  }, [activeUser]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState({ text: '', type: '' });
 
@@ -63,11 +69,14 @@ export default function IncidentForm() {
       return;
     }
 
-    // Payload кон Spring Boot. Полето assetId мора да биде број (Long).
+    // Payload кон Spring Boot
     const payload = {
+      naslov: formData.naslov,
       title: formData.naslov,
+      opis: formData.opis,
       description: formData.opis,
       assetId: parseInt(formData.assetId, 10),
+      tipIncident: formData.tipIncident,
       type: formData.tipIncident,
       itnost: formData.itnost,
       reporterEmail: formData.reporterEmail
@@ -79,11 +88,11 @@ export default function IncidentForm() {
 
       // Успешен одговор од Spring Boot (кој повика Odoo create())
       const data = response.data || {};
-      const odooTicketId = data.odoo_ticket_id ?? data.incidentId;
+      const ticketRef = data.odooTicketId ?? data.odoo_ticket_id ?? data.incidentId ?? data.incident?.incidentId ?? 'ОК';
+      const odooNote = data.odooTicketId ? ` (Odoo Ticket #${data.odooTicketId})` : '';
 
       setMessage({
-        text: `✓ Инцидентот е успешно регистриран во Odoo Helpdesk (Ticket #${odooTicketId}, priority=${data.priority}). ` +
-              `Приоритетот е автоматски пресметан врз основа на критичноста на средството.`,
+        text: `✓ Инцидентот е успешно регистриран (${ticketRef})${odooNote}.`,
         type: 'success'
       });
 
@@ -94,12 +103,13 @@ export default function IncidentForm() {
         opis: '',
         itnost: 'SREDNA',
         reporterEmail: '',
-        assetId: assets[0]?.id.toString() || ''
+        assetId: assets[0]?.id?.toString() || ''
       });
     } catch (error) {
       console.error('Грешка при поднесување:', error);
-      const errMsg = error.response?.data?.error || error.response?.data?.message
-        || error.message || 'Настана грешка при комуникација со серверот.';
+      const dataErr = error.response?.data;
+      const errMsg = typeof dataErr === 'string' ? dataErr
+        : (dataErr?.error || dataErr?.message || error.message || 'Настана грешка при комуникација со серверот.');
       setMessage({ text: `Грешка: ${errMsg}`, type: 'danger' });
     } finally {
       setLoading(false);

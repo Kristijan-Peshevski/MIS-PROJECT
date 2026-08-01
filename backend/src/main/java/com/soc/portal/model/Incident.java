@@ -16,7 +16,6 @@ public class Incident {
     @Column(name = "tip_incident", nullable = false)
     private String tipIncident; // PHISHING, MALWARE, DDOS, UNAUTHORIZED_ACCESS
 
-    @Lob
     @Column(columnDefinition = "TEXT")
     private String opis;
 

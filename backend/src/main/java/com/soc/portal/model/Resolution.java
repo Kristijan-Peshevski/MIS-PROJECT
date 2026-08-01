@@ -17,11 +17,9 @@ public class Resolution {
     @Column(nullable = false)
     private String dijagnoza; // TRUE_POSITIVE, FALSE_POSITIVE
 
-    @Lob
     @Column(name = "prezemeni_chekori", columnDefinition = "TEXT", nullable = false)
     private String prezemeniChekori;
 
-    @Lob
     @Column(columnDefinition = "TEXT")
     private String preporaki;
 

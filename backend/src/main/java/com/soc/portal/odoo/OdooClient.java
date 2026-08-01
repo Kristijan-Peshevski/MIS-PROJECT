@@ -113,6 +113,8 @@ public class OdooClient {
         vals.put("description", description);
         if (teamId != null) {
             vals.put("project_id", teamId);
+        } else {
+            vals.put("project_id", 1); // Default to Project #1 (Office Design / Operations) so tickets appear on Project Kanban view
         }
         // project.task priority: 0=Low, 1=High. Нема Medium/Very High.
         if (priority != null) {

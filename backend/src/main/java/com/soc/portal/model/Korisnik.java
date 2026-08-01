@@ -21,6 +21,9 @@ public class Korisnik {
     @Column(nullable = false)
     private String uloga; // KORISNIK, ANALITICAR, MENADZER
 
+    @Column(nullable = true)
+    private String lozinka;
+
     public Korisnik() {}
 
     public Korisnik(String ime, String prezime, String email, String uloga) {
@@ -28,6 +31,15 @@ public class Korisnik {
         this.prezime = prezime;
         this.email = email;
         this.uloga = uloga;
+        this.lozinka = "postgres";
+    }
+
+    public Korisnik(String ime, String prezime, String email, String uloga, String lozinka) {
+        this.ime = ime;
+        this.prezime = prezime;
+        this.email = email;
+        this.uloga = uloga;
+        this.lozinka = lozinka;
     }
 
     public Long getId() { return id; }
@@ -40,4 +52,6 @@ public class Korisnik {
     public void setEmail(String email) { this.email = email; }
     public String getUloga() { return uloga; }
     public void setUloga(String uloga) { this.uloga = uloga; }
+    public String getLozinka() { return lozinka; }
+    public void setLozinka(String lozinka) { this.lozinka = lozinka; }
 }
